@@ -14,4 +14,12 @@ uint8 MAV_DISTANCE_SENSOR_RADAR = 3
 
 uint8 id			# Onboard ID of the sensor
 
-uint8 orientation		# Direction the sensor faces from MAV_SENSOR_ORIENTATION enum
+uint8 orientation		# Direction the sensor faces from MAV_SENSOR_ORIENTATION enum use:
+# Orientation       | CMD ID | Field name                    |
+# ----------------- | ------ | ----------------------------- |
+# Downward-facing   | 0      | MAV_SENSOR_ROTATION_NONE      |
+# Upward-facing     | 8      | MAV_SENSOR_ROTATION_ROLL_180  |
+# Backward-facing   | 25     | MAV_SENSOR_ROTATION_PITCH_270 |
+# Forward-facing    | 24     | MAV_SENSOR_ROTATION_PITCH_90  |
+# Left-facing       | 16     | MAV_SENSOR_ROTATION_ROLL_90   |
+# Right-facing      | 20     | MAV_SENSOR_ROTATION_ROLL_270  |
