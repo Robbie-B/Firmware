@@ -40,6 +40,7 @@
  */
 
 #include <px4_config.h>
+#include <px4_getopt.h>
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -61,6 +62,8 @@
 
 #include <systemlib/perf_counter.h>
 #include <systemlib/err.h>
+
+#include <conversion/rotation.h>
 
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_range_finder.h>
@@ -89,7 +92,7 @@
 class SF0X : public device::CDev
 {
 public:
-	SF0X(const char *port = SF0X_DEFAULT_PORT);
+	SF0X(const char *port = SF0X_DEFAULT_PORT, enum Rotation rotation = ROTATION_NONE);
 	virtual ~SF0X();
 
 	virtual int 			init();
@@ -107,6 +110,7 @@ protected:
 
 private:
 	char 				_port[20];
+	enum Rotation _rotation;
 	float				_min_distance;
 	float				_max_distance;
 	int                 _conversion_interval;
@@ -177,8 +181,9 @@ private:
  */
 extern "C" __EXPORT int sf0x_main(int argc, char *argv[]);
 
-SF0X::SF0X(const char *port) :
+SF0X::SF0X(const char *port, enum Rotation rotation) :
 	CDev("SF0X", RANGE_FINDER0_DEVICE_PATH),
+	_rotation(rotation),
 	_min_distance(0.30f),
 	_max_distance(40.0f),
 	_conversion_interval(83334),
@@ -631,7 +636,7 @@ SF0X::collect()
 
 	report.timestamp = hrt_absolute_time();
 	report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
-	report.orientation = 8;
+	report.orientation = _rotation;
 	report.current_distance = distance_m;
 	report.min_distance = get_minimum_distance();
 	report.max_distance = get_maximum_distance();
@@ -789,7 +794,7 @@ namespace sf0x
 
 SF0X	*g_dev;
 
-void	start(const char *port);
+void	start(const char *port, enum Rotation rotation);
 void	stop();
 void	test();
 void	reset();
@@ -799,7 +804,7 @@ void	info();
  * Start the driver.
  */
 void
-start(const char *port)
+start(const char *port, enum Rotation rotation)
 {
 	int fd;
 
@@ -808,7 +813,7 @@ start(const char *port)
 	}
 
 	/* create the driver */
-	g_dev = new SF0X(port);
+	g_dev = new SF0X(port, rotation);
 
 	if (g_dev == nullptr) {
 		goto fail;
@@ -972,43 +977,62 @@ info()
 int
 sf0x_main(int argc, char *argv[])
 {
+	// check for optional arguments
+	int ch;
+	enum Rotation rotation = ROTATION_NONE;
+	int myoptind = 1;
+	const char *myoptarg = NULL;
+
+
+	while ((ch = px4_getopt(argc, argv, "R:", &myoptind, &myoptarg)) != EOF) {
+		switch (ch) {
+		case 'R':
+			rotation = (enum Rotation)atoi(myoptarg);
+			PX4_INFO("Setting distance sensor orientation to %d", (int)rotation);
+			break;
+
+		default:
+			PX4_WARN("Unknown option!");
+		}
+	}
+
 	/*
 	 * Start/load the driver.
 	 */
-	if (!strcmp(argv[1], "start")) {
-		if (argc > 2) {
-			sf0x::start(argv[2]);
+	if (!strcmp(argv[myoptind], "start")) {
+		if (argc > myoptind + 1) {
+			sf0x::start(argv[myoptind + 1], rotation);
 
 		} else {
-			sf0x::start(SF0X_DEFAULT_PORT);
+			sf0x::start(SF0X_DEFAULT_PORT, rotation);
 		}
 	}
 
 	/*
 	 * Stop the driver
 	 */
-	if (!strcmp(argv[1], "stop")) {
+	if (!strcmp(argv[myoptind], "stop")) {
 		sf0x::stop();
 	}
 
 	/*
 	 * Test the driver/device.
 	 */
-	if (!strcmp(argv[1], "test")) {
+	if (!strcmp(argv[myoptind], "test")) {
 		sf0x::test();
 	}
 
 	/*
 	 * Reset the driver.
 	 */
-	if (!strcmp(argv[1], "reset")) {
+	if (!strcmp(argv[myoptind], "reset")) {
 		sf0x::reset();
 	}
 
 	/*
 	 * Print driver information.
 	 */
-	if (!strcmp(argv[1], "info") || !strcmp(argv[1], "status")) {
+	if (!strcmp(argv[myoptind], "info") || !strcmp(argv[1], "status")) {
 		sf0x::info();
 	}
 
