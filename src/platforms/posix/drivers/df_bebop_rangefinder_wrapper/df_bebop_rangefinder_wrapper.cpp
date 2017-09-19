@@ -53,6 +53,8 @@
 #include <systemlib/perf_counter.h>
 #include <systemlib/err.h>
 
+#include <conversion/rotation.h>
+
 #include <drivers/drv_range_finder.h>
 #include <drivers/drv_hrt.h>
 
@@ -159,7 +161,7 @@ int DfBebopRangeFinderWrapper::_publish(struct bebop_range &data)
 
 	distance_data.id = 0; // TODO set proper ID
 
-	distance_data.orientation = 25; // MAV_SENSOR_ROTATION_PITCH_270
+	distance_data.orientation = ROTATION_NONE; // MAV_SENSOR_ROTATION_PITCH_270
 
 	distance_data.covariance = 1.0f; // TODO set correct value
 
