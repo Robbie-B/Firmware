@@ -55,6 +55,8 @@
 #include <systemlib/perf_counter.h>
 #include <systemlib/err.h>
 
+#include <conversion/rotation.h>
+
 #include <drivers/drv_range_finder.h>
 #include <drivers/drv_hrt.h>
 
@@ -76,7 +78,7 @@ using namespace DriverFramework;
 class DfTROneWrapper : public TROne
 {
 public:
-	DfTROneWrapper();
+	DfTROneWrapper(enum Rotation rotation = ROTATION_NONE);
 	~DfTROneWrapper();
 
 
@@ -97,6 +99,8 @@ public:
 private:
 	int _publish(struct range_sensor_data &data);
 
+	enum Rotation _rotation;
+
 	orb_advert_t		_range_topic;
 
 	int			_orb_class_instance;
@@ -105,8 +109,9 @@ private:
 
 };
 
-DfTROneWrapper::DfTROneWrapper(/*enum Rotation rotation*/) :
+DfTROneWrapper::DfTROneWrapper(enum Rotation rotation) :
 	TROne(TRONE_DEVICE_PATH),
+	_rotation(rotation),
 	_range_topic(nullptr),
 	_orb_class_instance(-1)
 {
@@ -169,7 +174,7 @@ int DfTROneWrapper::_publish(struct range_sensor_data &data)
 
 	d.id = 0; // TODO set proper ID
 
-	d.orientation = 0; // TODO no idea what to put here
+	d.orientation = _rotation;
 
 	d.covariance = 0.0f;
 
@@ -190,16 +195,16 @@ namespace df_trone_wrapper
 
 DfTROneWrapper *g_dev = nullptr;
 
-int start();
+int start(enum Rotation rotation);
 int stop();
 int info();
 int probe();
 void usage();
 
-int start()
+int start(enum Rotation rotation)
 {
 	PX4_ERR("start");
-	g_dev = new DfTROneWrapper();
+	g_dev = new DfTROneWrapper(rotation);
 
 	if (g_dev == nullptr) {
 		PX4_ERR("failed instantiating DfTROneWrapper object");
@@ -272,7 +277,7 @@ probe()
 	int ret;
 
 	if (g_dev == nullptr) {
-		ret = start();
+		ret = start(ROTATION_NONE);
 
 		if (ret) {
 			PX4_ERR("Failed to start");
@@ -309,10 +314,15 @@ df_trone_wrapper_main(int argc, char *argv[])
 	int ret = 0;
 	int myoptind = 1;
 	const char *myoptarg = NULL;
+	enum Rotation rotation = ROTATION_NONE;
 
 	/* jump over start/off/etc and look at options first */
 	while ((ch = px4_getopt(argc, argv, "R:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
+		case 'R':
+			rotation = (enum Rotation)atoi(myoptarg);
+			PX4_INFO("Setting distance sensor orientation to %d", (int)rotation);
+			break;
 
 		default:
 			df_trone_wrapper::usage();
@@ -329,7 +339,7 @@ df_trone_wrapper_main(int argc, char *argv[])
 
 
 	if (!strcmp(verb, "start")) {
-		ret = df_trone_wrapper::start(/*rotation*/);
+		ret = df_trone_wrapper::start(rotation);
 	}
 
 	else if (!strcmp(verb, "stop")) {
