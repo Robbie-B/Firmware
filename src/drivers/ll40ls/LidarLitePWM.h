@@ -50,6 +50,7 @@
 
 #include <drivers/device/ringbuffer.h>
 #include <systemlib/perf_counter.h>
+#include <conversion/rotation.h>
 
 #include <uORB/uORB.h>
 #include <uORB/topics/pwm_input.h>
@@ -60,7 +61,7 @@
 class LidarLitePWM : public LidarLite, public device::CDev
 {
 public:
-	LidarLitePWM(const char *path);
+	LidarLitePWM(const char *path, enum Rotation rotation = ROTATION_NONE);
 	virtual ~LidarLitePWM();
 
 	int init() override;
@@ -107,6 +108,7 @@ protected:
 	void task_main_trampoline(int argc, char *argv[]);
 
 private:
+	enum Rotation _rotation;
 	work_s			_work;
 	ringbuffer::RingBuffer	*_reports;
 	int			_class_instance;

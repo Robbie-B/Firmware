@@ -45,6 +45,7 @@
 #include <nuttx/wqueue.h>
 #include <nuttx/clock.h>
 #include <systemlib/perf_counter.h>
+#include <conversion/rotation.h>
 
 #include <drivers/device/i2c.h>
 #include <drivers/device/ringbuffer.h>
@@ -71,7 +72,7 @@
 class LidarLiteI2C : public LidarLite, public device::I2C
 {
 public:
-	LidarLiteI2C(int bus, const char *path, int address = LL40LS_BASEADDR);
+	LidarLiteI2C(int bus, const char *path, int address = LL40LS_BASEADDR, enum Rotation rotation = ROTATION_NONE);
 	virtual ~LidarLiteI2C();
 
 	int         init() override;
@@ -100,6 +101,7 @@ protected:
 	int                 reset_sensor();
 
 private:
+	enum Rotation _rotation;
 	work_s              _work;
 	ringbuffer::RingBuffer          *_reports;
 	bool                _sensor_ok;
