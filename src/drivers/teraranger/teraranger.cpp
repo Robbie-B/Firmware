@@ -40,6 +40,7 @@
 
 #include <px4_config.h>
 #include <px4_defines.h>
+#include <px4_getopt.h>
 
 #include <drivers/device/i2c.h>
 
@@ -62,6 +63,8 @@
 
 #include <systemlib/perf_counter.h>
 #include <systemlib/err.h>
+
+#include <lib/conversion/rotation.h>
 
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_range_finder.h>
@@ -101,7 +104,7 @@
 class TERARANGER : public device::I2C
 {
 public:
-	TERARANGER(int bus = TERARANGER_BUS, int address = TRONE_BASEADDR);
+	TERARANGER(enum Rotation rotation = ROTATION_NONE, int bus = TERARANGER_BUS, int address = TRONE_BASEADDR);
 	virtual ~TERARANGER();
 
 	virtual int 		init();
@@ -118,6 +121,7 @@ protected:
 	virtual int			probe();
 
 private:
+	enum Rotation _sens_rotation;
 	float				_min_distance;
 	float				_max_distance;
 	work_s				_work;
@@ -227,8 +231,9 @@ static uint8_t crc8(uint8_t *p, uint8_t len)
  */
 extern "C" __EXPORT int teraranger_main(int argc, char *argv[]);
 
-TERARANGER::TERARANGER(int bus, int address) :
+TERARANGER::TERARANGER(enum Rotation rotation, int bus, int address) :
 	I2C("TERARANGER", TERARANGER_DEVICE_PATH, bus, address, 100000),
+	_sens_rotation(rotation),
 	_min_distance(-1.0f),
 	_max_distance(-1.0f),
 	_reports(nullptr),
@@ -631,7 +636,7 @@ TERARANGER::collect()
 	report.timestamp = hrt_absolute_time();
 	/* there is no enum item for a combined LASER and ULTRASOUND which it should be */
 	report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
-	report.orientation = 8;
+	report.orientation = _sens_rotation;
 	report.current_distance = distance_m;
 	report.min_distance = get_minimum_distance();
 	report.max_distance = get_maximum_distance();
@@ -765,7 +770,7 @@ namespace teraranger
 
 TERARANGER	*g_dev;
 
-void	start();
+void	start(enum Rotation rotation);
 void	stop();
 void	test();
 void	reset();
@@ -775,7 +780,7 @@ void	info();
  * Start the driver.
  */
 void
-start()
+start(enum Rotation rotation)
 {
 	int fd;
 
@@ -784,7 +789,7 @@ start()
 	}
 
 	/* create the driver */
-	g_dev = new TERARANGER(TERARANGER_BUS);
+	g_dev = new TERARANGER(rotation, TERARANGER_BUS);
 
 
 	if (g_dev == nullptr) {
@@ -945,38 +950,55 @@ info()
 int
 teraranger_main(int argc, char *argv[])
 {
+	int ch;
+	int myoptind = 1;
+	const char *myoptarg = NULL;
+	enum Rotation sens_rotation = ROTATION_NONE;
+
+	while ((ch = px4_getopt(argc, argv, "R:", &myoptind, &myoptarg)) != EOF) {
+		switch (ch) {
+		case 'R':
+			sens_rotation = (enum Rotation)atoi(myoptarg);
+			PX4_INFO("Setting sensor orientation to %d", (int)sens_rotation);
+			break;
+
+		default:
+			PX4_WARN("Unknown option!");
+		}
+	}
+
 	/*
 	 * Start/load the driver.
 	 */
-	if (!strcmp(argv[1], "start")) {
-		teraranger::start();
+	if (!strcmp(argv[myoptind], "start")) {
+		teraranger::start(sens_rotation);
 	}
 
 	/*
 	 * Stop the driver
 	 */
-	if (!strcmp(argv[1], "stop")) {
+	if (!strcmp(argv[myoptind], "stop")) {
 		teraranger::stop();
 	}
 
 	/*
 	 * Test the driver/device.
 	 */
-	if (!strcmp(argv[1], "test")) {
+	if (!strcmp(argv[myoptind], "test")) {
 		teraranger::test();
 	}
 
 	/*
 	 * Reset the driver.
 	 */
-	if (!strcmp(argv[1], "reset")) {
+	if (!strcmp(argv[myoptind], "reset")) {
 		teraranger::reset();
 	}
 
 	/*
 	 * Print driver information.
 	 */
-	if (!strcmp(argv[1], "info") || !strcmp(argv[1], "status")) {
+	if (!strcmp(argv[myoptind], "info") || !strcmp(argv[1], "status")) {
 		teraranger::info();
 	}
 
